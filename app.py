@@ -6,8 +6,13 @@ from dotenv import load_dotenv
 
 _ = load_dotenv()
 
+AVAILABLE_MODELS = {
+    "Gemini 2.5 Flash": "gemini-2.5-flash",
+    "Gemini 2.5 Pro": "gemini-2.5-pro",
+}
 
-def init_gemini(system_prompt: str | None = None):
+
+def init_gemini(model_name: str, system_prompt: str | None = None):
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         _ = st.error("GEMINI_API_KEY not found. Please set it in .env file")
@@ -17,10 +22,10 @@ def init_gemini(system_prompt: str | None = None):
     
     if system_prompt:
         return genai.GenerativeModel(
-            "gemini-flash-latest",
+            model_name,
             system_instruction=system_prompt
         )
-    return genai.GenerativeModel("gemini-flash-latest")
+    return genai.GenerativeModel(model_name)
 
 
 def init_session_state():
@@ -28,8 +33,11 @@ def init_session_state():
         st.session_state.messages = []
     if "system_prompt" not in st.session_state:
         st.session_state.system_prompt = ""
+    if "selected_model" not in st.session_state:
+        st.session_state.selected_model = "Gemini 2.5 Flash"
     if "model" not in st.session_state:
-        st.session_state.model = init_gemini(st.session_state.system_prompt)
+        model_id = AVAILABLE_MODELS[st.session_state.selected_model]
+        st.session_state.model = init_gemini(model_id, st.session_state.system_prompt)
 
 
 def display_chat_history():
@@ -59,12 +67,27 @@ def main():
         layout="centered"
     )
     
-    st.title("🤖 Gemini Chat Bot")
+    _ = st.title("🤖 Gemini Chat Bot")
     
     init_session_state()
     
+    _ = st.caption(f"Current model: **{st.session_state.selected_model}**")
+    
     with st.sidebar:
         _ = st.header("Settings")
+        
+        selected_model_name = st.selectbox(
+            "Model",
+            options=list(AVAILABLE_MODELS.keys()),
+            index=list(AVAILABLE_MODELS.keys()).index(st.session_state.selected_model),
+            help="Choose the Gemini model to use"
+        )
+        
+        if selected_model_name != st.session_state.selected_model:
+            st.session_state.selected_model = selected_model_name
+            model_id = AVAILABLE_MODELS[selected_model_name]
+            st.session_state.model = init_gemini(model_id, st.session_state.system_prompt)
+            _ = st.success(f"Switched to {selected_model_name}")
         
         new_system_prompt = st.text_area(
             "System Prompt",
@@ -75,7 +98,8 @@ def main():
         
         if new_system_prompt != st.session_state.system_prompt:
             st.session_state.system_prompt = new_system_prompt
-            st.session_state.model = init_gemini(new_system_prompt)
+            model_id = AVAILABLE_MODELS[st.session_state.selected_model]
+            st.session_state.model = init_gemini(model_id, new_system_prompt)
             _ = st.success("System prompt updated!")
         
         _ = st.divider()
